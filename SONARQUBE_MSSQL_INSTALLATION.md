@@ -71,7 +71,32 @@ After installation, you must enable TCP/IP connections:
    - Click **Protocols for [INSTANCE_NAME]** (e.g., "Protocols for SQLEXPRESS")
    - Right-click **TCP/IP** and select **Enable**
 
-3. **Enable SQL Server Browser** (Critical for named instances like SQLEXPRESS):
+3. **Configure Static Port 1433** (Optional but Recommended):
+   
+   By default, SQL Server Express uses dynamic ports. Setting a static port simplifies configuration and eliminates the need for SQL Server Browser.
+   
+   a. In **SQL Server Configuration Manager**, under **Protocols for SQLEXPRESS**:
+      - Right-click **TCP/IP** and select **Properties**
+      - Go to the **IP Addresses** tab
+      - Scroll down to the **IPAll** section at the bottom
+   
+   b. Configure the ports:
+      - **TCP Dynamic Ports**: Clear this field (delete any value, leave it blank)
+      - **TCP Port**: Enter `1433`
+   
+   c. Click **OK**
+   
+   d. You will need to restart SQL Server for changes to take effect (see Step 6 below)
+   
+   > **Note**: If you configure a static port 1433, you can use the simpler connection string:
+   > ```properties
+   > sonar.jdbc.url=jdbc:sqlserver://localhost:1433;databaseName=sonarqube;trustServerCertificate=true
+   > ```
+   > Instead of using the instance name `\\SQLEXPRESS`.
+
+4. **Enable SQL Server Browser** (Critical for named instances with dynamic ports):
+   
+   > **Note**: If you configured static port 1433 in Step 3, SQL Server Browser is optional. However, it's still recommended for easier instance discovery.
    
    SQL Server Browser is often **disabled** by default. You must enable it:
    
@@ -91,7 +116,7 @@ After installation, you must enable TCP/IP connections:
    - Set **Start Mode** to **Automatic**
    - Click **OK**, then right-click and select **Start**
 
-4. **Enable SQL Server Authentication (Mixed Mode)**:
+5. **Enable SQL Server Authentication (Mixed Mode)**:
    
    SQL Server Express defaults to Windows Authentication only. You must enable Mixed Mode for SonarQube:
    
@@ -103,14 +128,15 @@ After installation, you must enable TCP/IP connections:
    - Under "Server authentication", select **SQL Server and Windows Authentication mode**
    - Click **OK**
 
-5. **Restart SQL Server**:
+6. **Restart SQL Server**:
    - In **SQL Server Services** (or `services.msc`), right-click **SQL Server (SQLEXPRESS)**
    - Select **Restart**
 
 > **Important Notes**:
 > - Without TCP/IP enabled, you'll see errors like "Connection refused" or "TCP/IP connection has failed"
 > - Without Mixed Mode authentication, you'll see "Login failed for user 'sonarqube'"
-> - Without SQL Server Browser running, you'll see "SocketTimeoutException: Receive timed out"
+> - Without SQL Server Browser running (if using dynamic ports), you'll see "SocketTimeoutException: Receive timed out"
+> - **Tip**: Configuring static port 1433 (Step 3) eliminates the need for SQL Server Browser and simplifies troubleshooting
 
 ### Step 2: Connect to SQL Server Using SSMS
 
@@ -288,12 +314,25 @@ Rename-Item -Path C:\sonarqube-* -NewName C:\sonarqube
 
 Edit the `sonar.properties` file located in `<sonarqube_home>/conf/sonar.properties`:
 
-#### For SQL Server Express (Named Instance):
+#### For SQL Server Express (Named Instance with Dynamic Port):
 
 ```properties
-# Database connection string for SQL Server Express
+# Database connection string for SQL Server Express with dynamic port
 # Note: Use double backslash (\\) for instance name in properties file
+# Requires SQL Server Browser service to be running
 sonar.jdbc.url=jdbc:sqlserver://localhost\\SQLEXPRESS;databaseName=sonarqube;trustServerCertificate=true
+
+# Database credentials
+sonar.jdbc.username=sonarqube
+sonar.jdbc.password=YourStrongPassword123!
+```
+
+#### For SQL Server Express (Named Instance with Static Port 1433):
+
+```properties
+# Database connection string for SQL Server Express with static port 1433
+# Note: If you configured TCP Port 1433 in SQL Server Configuration Manager (Step 3)
+sonar.jdbc.url=jdbc:sqlserver://localhost:1433;databaseName=sonarqube;trustServerCertificate=true
 
 # Database credentials
 sonar.jdbc.username=sonarqube
@@ -518,9 +557,20 @@ The TCP/IP connection to the host localhost, port 1433 has failed.
 Error: "Connection refused: getsockopt.
 ```
 
-**Fix**: Use named instance in connection string (SQL Server Express doesn't use port 1433):
+**Fix Option 1**: Use named instance in connection string:
 ```properties
 sonar.jdbc.url=jdbc:sqlserver://localhost\\SQLEXPRESS;databaseName=sonarqube;trustServerCertificate=true
+```
+
+**Fix Option 2 (Recommended)**: Configure SQL Server Express to use port 1433:
+1. Open **SQL Server Configuration Manager**
+2. **Protocols for SQLEXPRESS** → Right-click **TCP/IP** → **Properties**
+3. Go to **IP Addresses** tab → Scroll to **IPAll** section
+4. Clear **TCP Dynamic Ports**, set **TCP Port** to `1433`
+5. Restart SQL Server service
+6. Use connection string:
+```properties
+sonar.jdbc.url=jdbc:sqlserver://localhost:1433;databaseName=sonarqube;trustServerCertificate=true
 ```
 
 #### Error 3: Connection Timeout / SQL Server Browser Not Running
@@ -531,12 +581,20 @@ The connection to the host localhost, named instance sqlexpress failed.
 Error: "java.net.SocketTimeoutException: Receive timed out"
 ```
 
-**Fix**: Enable and start SQL Server Browser service:
+**Fix Option 1**: Enable and start SQL Server Browser service:
 1. Press `Win + R`, type `services.msc` and press Enter
 2. Find **SQL Server Browser**
 3. Right-click → **Properties** → Change **Startup type** to **Automatic**
 4. Click **Apply** → Click **Start** → Click **OK**
 5. Restart SonarQube
+
+**Fix Option 2 (Recommended)**: Configure static port 1433 to avoid needing SQL Server Browser:
+1. Open **SQL Server Configuration Manager**
+2. **Protocols for SQLEXPRESS** → Right-click **TCP/IP** → **Properties**
+3. Go to **IP Addresses** tab → Scroll to **IPAll** section
+4. Clear **TCP Dynamic Ports**, set **TCP Port** to `1433`
+5. Restart SQL Server service
+6. Use connection string: `jdbc:sqlserver://localhost:1433;databaseName=sonarqube;trustServerCertificate=true`
 
 #### Error 4: Login Failed for User
 
@@ -559,11 +617,38 @@ Login failed for user 'sonarqube'.
    ALTER ROLE db_owner ADD MEMBER sonarqube;
    ```
 
-> **Note**: All four issues are common with SQL Server Express 2022. The complete setup requires:
-> - Using named instance: `localhost\\SQLEXPRESS`
-> - Trusting the certificate: `trustServerCertificate=true`
-> - Enabling SQL Server Browser service
-> - Enabling Mixed Mode authentication and creating the SQL login
+#### Error 5: Login Failed for Integrated Security (Windows Only)
+
+**Error Message:**
+```
+Cannot open database "sonarqube" requested by the login. The login failed.
+```
+
+**Fix**: Grant permissions to the account running SonarQube (usually Local System Account):
+1. Identify the account: Usually `NT AUTHORITY\SYSTEM` (Local System Account)
+2. In SSMS, run:
+   ```sql
+   CREATE LOGIN [NT AUTHORITY\SYSTEM] FROM WINDOWS;
+   USE sonarqube;
+   CREATE USER [NT AUTHORITY\SYSTEM] FOR LOGIN [NT AUTHORITY\SYSTEM];
+   ALTER ROLE db_owner ADD MEMBER [NT AUTHORITY\SYSTEM];
+   ```
+3. Ensure `integratedSecurity=true` is in the connection string and **username/password are commented out**.
+
+> **Note**: All five issues are common with SQL Server Express 2022. 
+> 
+> **Recommended setup** (simplest configuration):
+> - Configure static port 1433 in SQL Server Configuration Manager (see Error 2/3 Fix Option 2)
+> - Trust the certificate: `trustServerCertificate=true`
+> - Enable Mixed Mode authentication and create the SQL login
+> - Use connection string: `jdbc:sqlserver://localhost:1433;databaseName=sonarqube;trustServerCertificate=true`
+>
+> **Alternative setup** (using named instance):
+> - Use named instance: `localhost\\SQLEXPRESS`
+> - Trust the certificate: `trustServerCertificate=true`
+> - Enable SQL Server Browser service
+> - Enable Mixed Mode authentication and create the SQL login
+> - Use connection string: `jdbc:sqlserver://localhost\\SQLEXPRESS;databaseName=sonarqube;trustServerCertificate=true`
 
 ### Common Issues
 
@@ -645,9 +730,34 @@ If you see error: "The connection to the host localhost, named instance sqlexpre
    - Go to **SQL Server Services**
    - Right-click **SQL Server (SQLEXPRESS)** and select **Restart**
 
-**Solution 4: Use Direct Port Connection (Alternative)**
+**Solution 4: Configure Static Port 1433 (Recommended Alternative)**
 
-If SQL Server Browser cannot be enabled, find and use the dynamic port directly:
+Instead of using SQL Server Browser, configure SQL Server Express to use static port 1433:
+
+1. Open **SQL Server Configuration Manager**
+2. Go to **SQL Server Network Configuration** → **Protocols for SQLEXPRESS**
+3. Right-click **TCP/IP** and select **Properties**
+4. Go to **IP Addresses** tab
+5. Scroll to bottom to **IPAll** section
+6. Configure:
+   - **TCP Dynamic Ports**: Clear this field (leave blank)
+   - **TCP Port**: Enter `1433`
+7. Click **OK**
+8. Restart SQL Server service:
+   - Go to **SQL Server Services**
+   - Right-click **SQL Server (SQLEXPRESS)** and select **Restart**
+
+Then use this simpler connection string:
+
+```properties
+sonar.jdbc.url=jdbc:sqlserver://localhost:1433;databaseName=sonarqube;trustServerCertificate=true
+```
+
+> **Benefits**: No need for SQL Server Browser, simpler connection string, consistent port across environments.
+
+**Solution 5: Use Dynamic Port Connection (If Static Port Not Possible)**
+
+If you cannot set a static port, find and use the current dynamic port:
 
 1. Open **SQL Server Configuration Manager**
 2. Go to **SQL Server Network Configuration** → **Protocols for SQLEXPRESS**
@@ -664,10 +774,11 @@ sonar.jdbc.url=jdbc:sqlserver://localhost:49172;databaseName=sonarqube;trustServ
 
 Replace `49172` with your actual port number.
 
-**Solution 5: Check Firewall**
+**Solution 6: Check Firewall**
 - Ensure SQL Server port is not blocked
-- For named instances, allow **SQL Server Browser** (UDP port 1434)
-- For default instance, allow TCP port 1433
+- For named instances with SQL Server Browser, allow UDP port 1434
+- For static port configuration, allow TCP port 1433
+- For dynamic ports, allow the specific TCP port shown in IPAll
 
 **Verify connection string:**
 ```bash
@@ -769,7 +880,7 @@ WHERE dp.name = 'sonarqube';
 Before trying SonarQube again, test the login in SSMS:
 
 1. Disconnect from the server
-2. Reconnect with:
+2. Reconnect with:git s
    - Server name: `localhost\SQLEXPRESS`
    - Authentication: **SQL Server Authentication**
    - Login: `sonarqube`
@@ -785,6 +896,55 @@ Ensure the password matches exactly:
 sonar.jdbc.url=jdbc:sqlserver://localhost\\SQLEXPRESS;databaseName=sonarqube;trustServerCertificate=true
 sonar.jdbc.username=sonarqube
 sonar.jdbc.password=YourStrongPassword123!
+```
+
+##### Error: "Cannot open database requested by the login" (Integrated Security)
+
+**Error Message:**
+
+```
+Cannot open database "sonarqube" requested by the login. The login failed.
+```
+
+This error occurs with integrated security when the Windows account running the SonarQube service does not have permissions in SQL Server.
+
+**Solution - Step 1: Identify the Windows Account**
+
+1. Press `Win + R`, type `services.msc` and press Enter.
+2. Find the **SonarQube** service.
+3. Right-click → **Properties** → **Log On** tab.
+4. Note the account:
+   - If it says **Local System account**, the user is `NT AUTHORITY\SYSTEM`.
+   - If it says **This account**, it's a specific user (e.g., `DOMAIN\username`).
+
+**Solution - Step 2: Grant Permissions in SQL Server**
+
+Connect to SSMS (Windows Authentication) and run the following (replace `[NT AUTHORITY\SYSTEM]` with your account if different):
+
+```sql
+-- Create login for the account
+CREATE LOGIN [NT AUTHORITY\SYSTEM] FROM WINDOWS;
+
+-- Switch to the sonarqube database
+USE sonarqube;
+
+-- Create user for the login
+CREATE USER [NT AUTHORITY\SYSTEM] FOR LOGIN [NT AUTHORITY\SYSTEM];
+
+-- Grant db_owner permissions
+ALTER ROLE db_owner ADD MEMBER [NT AUTHORITY\SYSTEM];
+```
+
+**Solution - Step 3: Verify sonar.properties**
+
+Ensure `integratedSecurity=true` is used and credentials are removed:
+
+```properties
+sonar.jdbc.url=jdbc:sqlserver://localhost:1433;databaseName=sonarqube;integratedSecurity=true;trustServerCertificate=true
+
+# DO NOT set username and password
+# sonar.jdbc.username=
+# sonar.jdbc.password=
 ```
 
 #### 3. Elasticsearch Won't Start
@@ -834,11 +994,23 @@ If it returns 0, enable it as shown in the Database Configuration section.
 
 ## Database Connection Examples
 
-### SQL Server Express (Named Instance) - Most Common
+### SQL Server Express with Static Port 1433 (Recommended)
 
 ```properties
-# SQL Server Express with named instance
+# SQL Server Express with static port 1433
+# RECOMMENDED: Simplest configuration, no SQL Server Browser needed
+# Configure static port in SQL Server Configuration Manager (see Installation Step 3)
+sonar.jdbc.url=jdbc:sqlserver://localhost:1433;databaseName=sonarqube;trustServerCertificate=true
+sonar.jdbc.username=sonarqube
+sonar.jdbc.password=YourPassword123!
+```
+
+### SQL Server Express (Named Instance with Dynamic Port)
+
+```properties
+# SQL Server Express with named instance and dynamic port
 # IMPORTANT: Use double backslash (\\) for instance name
+# IMPORTANT: Requires SQL Server Browser service to be running
 # IMPORTANT: Include trustServerCertificate=true for SQL Server 2022
 sonar.jdbc.url=jdbc:sqlserver://localhost\\SQLEXPRESS;databaseName=sonarqube;trustServerCertificate=true
 sonar.jdbc.username=sonarqube
@@ -848,17 +1020,8 @@ sonar.jdbc.password=YourPassword123!
 ### SQL Server Default Instance
 
 ```properties
-# Local SQL Server with default instance
+# Local SQL Server with default instance (uses port 1433 by default)
 sonar.jdbc.url=jdbc:sqlserver://localhost;databaseName=sonarqube;trustServerCertificate=true
-sonar.jdbc.username=sonarqube
-sonar.jdbc.password=YourPassword123!
-```
-
-### Named Instance with Explicit Port
-
-```properties
-# If you configured a static port (e.g., 1433) for your named instance
-sonar.jdbc.url=jdbc:sqlserver://localhost:1433;databaseName=sonarqube;trustServerCertificate=true
 sonar.jdbc.username=sonarqube
 sonar.jdbc.password=YourPassword123!
 ```
