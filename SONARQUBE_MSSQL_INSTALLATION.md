@@ -416,7 +416,27 @@ If using Windows Authentication with Integrated Security:
    - `C:\Windows\System32`
    - Or add a custom folder to PATH
 
-4. If running SonarQube as a Windows service, ensure the service account has permission to connect to SQL Server
+4. **Grant SQL Server Permissions to the Service Account**:
+   
+   If running SonarQube as a Windows service, you must grant the service account permission to access the `sonarqube` database:
+
+   a. **Identify the Service Account**:
+      - Press `Win + R`, type `services.msc` and press Enter
+      - Find the **SonarQube** service
+      - Right-click → **Properties** → **Log On** tab
+      - Note the account name (usually **Local System account**, which corresponds to `NT AUTHORITY\SYSTEM`)
+
+   b. **Grant Permissions in SQL Server**:
+      Open SSMS and execute the following SQL (replace `[NT AUTHORITY\SYSTEM]` if your service uses a different account):
+      ```sql
+      -- Create the login for the service account
+      CREATE LOGIN [NT AUTHORITY\SYSTEM] FROM WINDOWS;
+      
+      -- Map user to the database and grant owner permissions
+      USE sonarqube;
+      CREATE USER [NT AUTHORITY\SYSTEM] FOR LOGIN [NT AUTHORITY\SYSTEM];
+      ALTER ROLE db_owner ADD MEMBER [NT AUTHORITY\SYSTEM];
+      ```
 
 ### Step 4: Configure Web Server Settings (Optional)
 
