@@ -20,7 +20,7 @@ This guide provides comprehensive instructions for installing and configuring So
 
 ### Software Requirements
 
-- **Microsoft SQL Server**: Version 2016, 2017, 2019, or 2022
+- **Microsoft SQL Server**: Version 2016, 2017, 2019, 2022, or 2025
   - Express Edition is supported
   - Both Windows Authentication and SQL Server Authentication are supported
 - **Java**: Oracle JRE or OpenJDK version 21 (Java 17 is deprecated)
@@ -62,8 +62,8 @@ This guide provides comprehensive instructions for installing and configuring So
 After installation, you must enable TCP/IP connections:
 
 1. Open **SQL Server Configuration Manager**:
-   - Press `Win + R` and type: `SQLServerManager16.msc` (for SQL Server 2022)
-   - For other versions: 2019 = 15, 2017 = 14, 2016 = 13
+   - Press `Win + R` and type: `SQLServerManager17.msc` (for SQL Server 2025), `SQLServerManager16.msc` (for 2022)
+   - For other versions: 2022 = 16, 2019 = 15, 2017 = 14, 2016 = 13
    - Or search "SQL Server Configuration Manager" in Start Menu
 
 2. **Enable TCP/IP Protocol**:
@@ -140,19 +140,19 @@ After installation, you must enable TCP/IP connections:
 
 ### Step 2: Connect to SQL Server Using SSMS
 
-#### Connecting with SQL Server Management Studio (SSMS) 2022
+#### Connecting with SQL Server Management Studio (SSMS) 2022 / 2025
 
 1. **Open SQL Server Management Studio (SSMS)**
 
 2. **In the "Connect to Server" dialog, enter the following:**
    - **Server type**: Database Engine
-   - **Server name**: `localhost\SQLEXPRESS` (for SQL Server Express 2022)
+   - **Server name**: `localhost\SQLEXPRESS` (for SQL Server Express 2022/2025)
      - Alternative formats: `.\SQLEXPRESS` or `(local)\SQLEXPRESS`
    - **Authentication**: Windows Authentication (default) or SQL Server Authentication
 
-3. **Configure Certificate Trust for SQL Server 2022**
+3. **Configure Certificate Trust for SQL Server 2022 / 2025**
    
-   SQL Server 2022 enforces encryption by default but uses a self-signed certificate. You'll need to trust this certificate:
+   SQL Server 2022 and 2025 enforce encryption by default but use a self-signed certificate. You'll need to trust this certificate:
    
    - Click **Options >>** at the bottom of the dialog
    - Go to the **Connection Properties** tab
@@ -655,7 +655,7 @@ Cannot open database "sonarqube" requested by the login. The login failed.
    ```
 3. Ensure `integratedSecurity=true` is in the connection string and **username/password are commented out**.
 
-> **Note**: All five issues are common with SQL Server Express 2022. 
+> **Note**: All five issues are common with SQL Server Express 2022 and 2025. 
 > 
 > **Recommended setup** (simplest configuration):
 > - Configure static port 1433 in SQL Server Configuration Manager (see Error 2/3 Fix Option 2)
@@ -739,7 +739,7 @@ If you see error: "The connection to the host localhost, named instance sqlexpre
 **Solution 3: Enable TCP/IP Protocol**
 
 1. Open **SQL Server Configuration Manager**
-   - Press `Win + R`, type: `SQLServerManager16.msc` (SQL Server 2022)
+   - Press `Win + R`, type: `SQLServerManager17.msc` (SQL Server 2025), `SQLServerManager16.msc` (SQL Server 2022)
    - Or search "SQL Server Configuration Manager"
 
 2. Expand **SQL Server Network Configuration**
@@ -827,7 +827,7 @@ The certificate chain was issued by an authority that is not trusted.)
 sonar.jdbc.url=jdbc:sqlserver://localhost\\SQLEXPRESS;databaseName=sonarqube;trustServerCertificate=true
 ```
 
-This is required for SQL Server 2022 which enforces encryption by default but uses a self-signed certificate.
+This is required for SQL Server 2022 and 2025, which enforce encryption by default but use a self-signed certificate.
 
 ##### Error: "Login failed for user 'sonarqube'"
 
@@ -900,7 +900,7 @@ WHERE dp.name = 'sonarqube';
 Before trying SonarQube again, test the login in SSMS:
 
 1. Disconnect from the server
-2. Reconnect with:git s
+2. Reconnect with:
    - Server name: `localhost\SQLEXPRESS`
    - Authentication: **SQL Server Authentication**
    - Login: `sonarqube`
@@ -1031,7 +1031,7 @@ sonar.jdbc.password=YourPassword123!
 # SQL Server Express with named instance and dynamic port
 # IMPORTANT: Use double backslash (\\) for instance name
 # IMPORTANT: Requires SQL Server Browser service to be running
-# IMPORTANT: Include trustServerCertificate=true for SQL Server 2022
+# IMPORTANT: Include trustServerCertificate=true for SQL Server 2022/2025
 sonar.jdbc.url=jdbc:sqlserver://localhost\\SQLEXPRESS;databaseName=sonarqube;trustServerCertificate=true
 sonar.jdbc.username=sonarqube
 sonar.jdbc.password=YourPassword123!
@@ -1180,7 +1180,7 @@ Backup the following directories:
 
 This guide is based on:
 - **SonarQube Server**: Version 2025.6 (latest as of January 2026)
-- **Microsoft SQL Server**: Versions 2016, 2017, 2019, 2022
+- **Microsoft SQL Server**: Versions 2016, 2017, 2019, 2022, 2025
 - **Microsoft JDBC Driver**: Version 12.10.2
 
 ---
